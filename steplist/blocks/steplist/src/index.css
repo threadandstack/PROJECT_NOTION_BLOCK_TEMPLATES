@@ -136,6 +136,7 @@
 /* ── The rail ─────────────────────────────────────────────────────────── */
 
 .stepline {
+  position: relative;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -307,15 +308,44 @@ button.bullet:focus-visible {
   outline-offset: 1px;
 }
 
-/* The bullet is the other way into the status menu. */
+/*
+ * The bullet is the step's drag handle, as Notion's ⋮⋮ is for a block: a grab
+ * cursor and a faint ring on hover say it can be picked up. `touch-action`
+ * stops a drag on a touch screen from scrolling the page instead.
+ */
 button.bullet {
   padding: 0;
   font-family: inherit;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
-button.bullet:hover:not(:disabled) {
+button.bullet:hover {
   box-shadow: 0 0 0 3px var(--bg-hover);
+}
+
+/* While dragging: the step being moved fades, and a blue line shows where it will land. */
+.stepline.is-dragging,
+.stepline.is-dragging button.bullet {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.step.is-dragging {
+  opacity: 0.4;
+}
+
+/* Notion's own drop indicator: a 3px line in its translucent accent blue. */
+.drop-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(35, 131, 226, 0.43);
+  pointer-events: none;
+  list-style: none;
 }
 
 /* ── Status colours ───────────────────────────────────────────────────── */

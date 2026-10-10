@@ -13,6 +13,8 @@ import { StatusMenu } from "./StatusMenu"
 import { Step, type StepEdit } from "./Step"
 import {
   findTitleRow,
+  inOrder,
+  reorder,
   nextPosition,
   statusGroups,
   statusOptions,
@@ -20,6 +22,7 @@ import {
   toSteps,
   type Step as StepModel,
 } from "./steps"
+import { useDragReorder } from "./useDragReorder"
 import { usePopoverSpace } from "./usePopoverSpace"
 
 const DATA_SOURCE_KEY = "steps"
@@ -64,10 +67,18 @@ export function App() {
     [propertySchemasByKey.status]
   )
   const groups = useMemo(() => statusGroups(propertySchemasByKey.status), [propertySchemasByKey.status])
-  const steps = useMemo(
+  const savedSteps = useMemo(
     () => toSteps(items, propertySchemasByKey.status),
     [items, propertySchemasByKey.status]
   )
+
+  // A dragged step moves at once; this holds the new order until Notion has
+  // saved every position, so the list doesn't shuffle as each write lands.
+  const [pendingOrder, setPendingOrder] = useState<string[] | null>(null)
+  const steps = useMemo(() => inOrder(savedSteps, pendingOrder), [savedSteps, pendingOrder])
+  useEffect(() => {
+    if (pendingOrder && savedSteps.map((step) => step.id).join() === pendingOrder.join()) setPendingOrder(null)
+  }, [savedSteps, pendingOrder])
 
   /**
    * Run one write, keeping the affected step disabled until it settles and
@@ -182,7 +193,24 @@ export function App() {
     })
   }
 
-  function remove(step: StepModel) {
+  /** Drop a dragged step at its new place: renumber, writing only what changed. */
+  function reorderTo(from: number, to: number) {
+    const { order, changes } = reorder(steps, from, to)
+    if (changes.length === 0) return
+    setPendingOrder(order.map((step) => step.id))
+    void write(order[to].id, async () => {
+      const results = await Promise.all(
+        changes.map(({ step, position }) =>
+          step.row.update({ properties: { position: { type: "number", number: position } } })
+        )
+      )
+      const failed = results.find((result) => result.status === "error")
+      if (failed) setPendingOrder(null)
+      return failed ?? { status: "success" }
+    })
+  }
+
+    function remove(step: StepModel) {
     void write(step.id, async () => {
       const result = await step.row.archive()
       if (result.status === "success") {
@@ -298,6 +326,14 @@ export function App() {
     void write(step.id, () => step.row.update({ properties: { status: { type: "status", status: { id: option.id } } } }))
   }
 
+  const [list, setList] = useState<HTMLOListElement | null>(null)
+  const { drag, handleProps } = useDragReorder({
+    list,
+    count: steps.length,
+    disabled: busyId !== null,
+    onDrop: reorderTo,
+  })
+
   const menuStep = statusMenu ? steps.find((step) => step.id === statusMenu.stepId) : undefined
 
   if (error) {
@@ -358,13 +394,15 @@ export function App() {
             : "No steps yet. Choose “Edit steplist” to add one."}
         </p>
       ) : (
-        <ol className="stepline">
+        <ol ref={setList} className={`stepline ${drag ? "is-dragging" : ""}`}>
           {steps.map((step, index) => (
             <Step
               key={step.id}
               step={step}
               index={index + 1}
               isLast={index === steps.length - 1}
+              handle={handleProps(index)}
+              dragging={drag?.from === index}
               canMoveUp={index > 0}
               canMoveDown={index < steps.length - 1}
               statusOptions={options}
@@ -381,6 +419,7 @@ export function App() {
               onRemove={() => remove(step)}
             />
           ))}
+          {drag ? <li className="drop-line" aria-hidden="true" style={{ top: drag.top - 1 }} /> : null}
         </ol>
       )}
 

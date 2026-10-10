@@ -6,15 +6,18 @@ Notion and stays editable from the database as well as from the block.
 
 - **A heading** above the steps. Click it and type, as in Notion; select text to
   format it.
-- **Change a status in place.** Click a step's status pill, or its bullet, for a
-  small status menu grouped To-do / In progress / Complete.
+- **Change a status in place.** Click a step's status pill for a small status
+  menu grouped To-do / In progress / Complete.
+- **Drag to reorder.** Press a step's bullet and drag it; a blue line shows where
+  it will land, as in Notion. ⌘⇧↑ / ⌘⇧↓ on a focused bullet moves it from the
+  keyboard. Only the steps whose position changes are saved.
 - **Notion's own colours.** A step's title takes its status's colour and the
   pill looks exactly like Notion's, in light and dark mode.
 - **Completed steps** fill their bullet with that colour and a tick.
 - **Open a step** to read its detail. Steps with detail show a chevron, and
   hovering a title says "Click to reveal".
-- **Edit the list** with "Edit steplist" (shown on hover): edit, reorder, add
-  and remove steps. Removing archives the row, so it can be restored.
+- **Edit the list** with "Edit steplist" (shown on hover): edit, add and remove
+  steps. Removing archives the row, so it can be restored.
 
 ## The database it uses
 
@@ -64,8 +67,8 @@ updates the same worker. Then type `/steplist` on any page.
 
 - `src/index.ts` declares the block and the database it binds to.
 - `blocks/steplist/src/` is the React app Notion embeds: `App.tsx` (data and
-  writes), `Step.tsx` (one step), `StatusMenu.tsx`, `steps.ts` (turning rows into
-  steps), and an in-place text editor (`InlineText.tsx`, `FormatToolbar.tsx`,
+  writes), `Step.tsx` (one step), `StatusMenu.tsx`, `useDragReorder.ts`,
+  `steps.ts` (turning rows into steps and working out reorders), and an in-place text editor (`InlineText.tsx`, `FormatToolbar.tsx`,
   `richText.ts`, `editorDom.ts`).
 - `index.css` holds Notion's in-app palette, read from the Notion app's own
   stylesheet, as `--n-<hue>-*` variables.

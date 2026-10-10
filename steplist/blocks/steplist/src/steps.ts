@@ -240,6 +240,36 @@ export function toSteps(
     })
 }
 
+/**
+ * Move the step at `from` so it ends up at `to`, and work out which positions
+ * to write. Steps are renumbered 1, 2, 3… in their new order, and only the ones
+ * whose position actually changes are returned, so a short move is a few writes.
+ * Steps with no position yet get one along the way.
+ */
+export function reorder(
+  steps: Step[],
+  from: number,
+  to: number
+): { order: Step[]; changes: { step: Step; position: number }[] } {
+  const order = [...steps]
+  if (from === to || from < 0 || from >= steps.length) return { order, changes: [] }
+  const [moved] = order.splice(from, 1)
+  order.splice(Math.max(0, Math.min(to, order.length)), 0, moved)
+  const changes = order
+    .map((step, index) => ({ step, position: index + 1 }))
+    .filter(({ step, position }) => step.position !== position)
+  return { order, changes }
+}
+
+/** Show steps in a pending order (a drag not yet confirmed by Notion), if any. */
+export function inOrder(steps: Step[], ids: string[] | null): Step[] {
+  if (!ids) return steps
+  const rank = new Map(ids.map((id, index) => [id, index]))
+  return [...steps].sort(
+    (a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+  )
+}
+
 /** The next position to hand a newly added step. */
 export function nextPosition(steps: Step[]): number {
   const positions = steps

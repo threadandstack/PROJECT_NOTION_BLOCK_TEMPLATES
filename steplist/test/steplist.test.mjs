@@ -5,7 +5,9 @@ import {
   findTitleRow,
   formatDate,
   nextPosition,
+  inOrder,
   pillForOption,
+  reorder,
   statusGroups,
   toSteps,
 } from "../blocks/steplist/src/steps.ts"
@@ -302,4 +304,46 @@ test("chevrons are always visible and the title explains them", async () => {
 
   const step = await readFile(new URL("../blocks/steplist/src/Step.tsx", import.meta.url), "utf8")
   assert.match(step, /"Click to reveal"/)
+})
+
+test("dragging a step renumbers only what moves", () => {
+  const steps = toSteps(
+    [
+      row("a", { title: "A", position: 1 }),
+      row("b", { title: "B", position: 2 }),
+      row("c", { title: "C", position: 3 }),
+      row("d", { title: "D", position: 4 }),
+    ],
+    statusSchema
+  )
+  const titles = (list) => list.map((step) => step.title)
+
+  // D to the top: everything shifts down one.
+  const up = reorder(steps, 3, 0)
+  assert.deepEqual(titles(up.order), ["D", "A", "B", "C"])
+  assert.deepEqual(up.changes.map(({ step, position }) => [step.title, position]), [["D", 1], ["A", 2], ["B", 3], ["C", 4]])
+
+  // A short move only touches the two steps that swap.
+  const swap = reorder(steps, 1, 2)
+  assert.deepEqual(titles(swap.order), ["A", "C", "B", "D"])
+  assert.deepEqual(swap.changes.map(({ step, position }) => [step.title, position]), [["C", 2], ["B", 3]])
+
+  assert.deepEqual(reorder(steps, 2, 2).changes, [], "dropping in place writes nothing")
+
+  // Unpositioned steps get positions as they're moved past.
+  const loose = toSteps([row("x", { title: "X" }), row("y", { title: "Y" })], statusSchema)
+  assert.deepEqual(reorder(loose, 1, 0).changes.map(({ step, position }) => [step.title, position]), [["Y", 1], ["X", 2]])
+
+  // While Notion saves, the list shows the dragged order.
+  assert.deepEqual(titles(inOrder(steps, ["c", "a", "b", "d"])), ["C", "A", "B", "D"])
+  assert.equal(inOrder(steps, null), steps)
+})
+
+// One way to change a status (the pill); the bullet is for moving the step.
+test("the bullet is a drag handle, not a status control", async () => {
+  const step = await readFile(new URL("../blocks/steplist/src/Step.tsx", import.meta.url), "utf8")
+  const bullet = step.slice(step.indexOf('className="bullet"') - 200, step.indexOf('className="bullet"') + 400)
+  assert.doesNotMatch(bullet, /onOpenStatus/, "the bullet still opens the status menu")
+  assert.match(bullet, /\{\.\.\.handle\}/, "the bullet doesn't carry the drag handlers")
+  assert.match(bullet, /title="Drag to move"/)
 })

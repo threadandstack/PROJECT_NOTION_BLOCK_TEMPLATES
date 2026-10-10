@@ -1,5 +1,5 @@
 import type { NotionPropertyOption } from "@notionhq/custom-blocks"
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useState, type ButtonHTMLAttributes } from "react"
 import { StatusPicker } from "./StatusPicker"
 import { formatDate, type Step as StepModel } from "./steps"
 
@@ -23,8 +23,12 @@ type StepProps = {
   editing: boolean
   busy: boolean
   onToggle: () => void
-  /** Open the status menu below the element clicked; absent when there are no statuses to pick. */
+  /** Open the status menu below the pill clicked; absent when there are no statuses to pick. */
   onOpenStatus?: (anchor: HTMLElement) => void
+  /** Pointer and key handlers that make the bullet a drag handle. */
+  handle: ButtonHTMLAttributes<HTMLButtonElement>
+  /** Whether this step is the one being dragged. */
+  dragging: boolean
   onStartEditing: () => void
   onStopEditing: () => void
   onSave: (edit: StepEdit) => void
@@ -45,6 +49,8 @@ export function Step({
   busy,
   onToggle,
   onOpenStatus,
+  handle,
+  dragging,
   onStartEditing,
   onStopEditing,
   onSave,
@@ -65,28 +71,24 @@ export function Step({
   const title = step.title || "Untitled step"
 
   return (
-    <li className={`step step-${step.phase} ${step.tone ? `ink-${step.tone}` : ""} ${expanded ? "is-expanded" : ""}`}>
+    <li
+      className={`step step-${step.phase} ${step.tone ? `ink-${step.tone}` : ""} ${expanded ? "is-expanded" : ""} ${dragging ? "is-dragging" : ""}`}
+    >
       <div className="rail">
         {/*
-          The bullet doubles as the status control, like the pill beside the
-          title: clicking either opens the status menu.
+          The bullet is the step's drag handle, like Notion's ⋮⋮: press and
+          drag to move the step. Status is changed from the pill by the title.
         */}
-        {onOpenStatus ? (
-          <button
-            type="button"
-            className="bullet"
-            aria-label={`Step ${index} status: ${step.status ?? "none"}. Change status`}
-            aria-haspopup="menu"
-            disabled={busy}
-            onClick={(event) => onOpenStatus(event.currentTarget)}
-          >
-            {step.phase === "complete" ? <CheckMark /> : index}
-          </button>
-        ) : (
-          <span className="bullet" aria-hidden="true">
-            {step.phase === "complete" ? <CheckMark /> : index}
-          </span>
-        )}
+        <button
+          type="button"
+          className="bullet"
+          title="Drag to move"
+          aria-label={`Step ${index}. Drag to move, or press ⌘⇧↑ or ⌘⇧↓`}
+          aria-roledescription="drag handle"
+          {...handle}
+        >
+          {step.phase === "complete" ? <CheckMark /> : index}
+        </button>
         {isLast ? null : <span className="connector" aria-hidden="true" />}
       </div>
 
