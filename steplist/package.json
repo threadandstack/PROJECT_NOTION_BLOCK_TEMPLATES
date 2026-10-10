@@ -28,5 +28,6 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
-  "description": "A Notion custom block: a numbered list of steps under a heading, with in-place status changes and Notion's own colours."
+  "description": "A Notion custom block: a numbered list of steps under a heading, with in-place status changes and Notion's own colours.",
+  "license": "MIT"
 }

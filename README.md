@@ -15,3 +15,8 @@ workspace.
 - You'll need Node 22 or newer and Notion's `ntn` CLI (version 0.23 or newer).
 
 Each template's README walks you through installing, previewing and deploying it.
+
+## Licence
+
+Free to use, change and share, including commercially, under the
+[MIT licence](LICENSE). A credit to Thread & Stack is appreciated, not required.
