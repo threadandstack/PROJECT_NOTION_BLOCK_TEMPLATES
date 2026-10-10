@@ -1,0 +1,32 @@
+{
+  "type": "worker",
+  "key": "worker_steps",
+  "name": "Steps",
+  "schema": {
+    "title": {
+      "name": "Title",
+      "type": "title"
+    },
+    "detail": {
+      "name": "Detail",
+      "type": "rich_text"
+    },
+    "status": {
+      "name": "Status",
+      "type": "status"
+    },
+    "position": {
+      "name": "Position",
+      "type": "number"
+    },
+    "date": {
+      "name": "Date",
+      "type": "date"
+    },
+    "kind": {
+      "name": "Row type",
+      "type": "select"
+    }
+  },
+  "rows": []
+}

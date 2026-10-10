@@ -1,0 +1,1005 @@
+/*
+ * Everything here is expressed in Notion design tokens (from nds.css) so the
+ * block tracks the host's light/dark and contrast modes rather than pinning its
+ * own palette. Nothing is loaded from a CDN — the sandbox blocks that.
+ */
+
+#root {
+  font-family: var(--font-sans);
+  color: var(--content-primary);
+  background: var(--bg-base);
+}
+
+/* ── Notion's palette ───────────────────────────────────────────────── */
+
+/*
+ * Notion's own in-app colours, read from the Notion web app's stylesheet on
+ * 2026-10-09 (its --c-*TexSec, --c-*BacSec, --c-*TexPri and --ca-*BacTerTra
+ * variables). Notion does not publish these in its docs, so this is the source:
+ *   --n-<hue>-text      coloured text in the editor (the same in light and dark)
+ *   --n-<hue>-bg        a "<hue> background" fill, e.g. a callout or highlight
+ *   --n-<hue>-pill-*    a status or select pill: dark text on a translucent tint
+ * The design system's raw palette (--green-110 etc.) is darker than any of
+ * these, which is why coloured text looked heavy before.
+ */
+:root {
+  --n-gray-text: #7d7a75;
+  --n-brown-text: #9f765a;
+  --n-orange-text: #d27b2d;
+  --n-yellow-text: #cb9434;
+  --n-green-text: #50946e;
+  --n-blue-text: #387dc9;
+  --n-purple-text: #9a6bb4;
+  --n-pink-text: #c14c8a;
+  --n-red-text: #cf5148;
+  --n-gray-bg: #f0efed;
+  --n-brown-bg: #f5ede9;
+  --n-orange-bg: #fbebde;
+  --n-yellow-bg: #f9f3dc;
+  --n-green-bg: #e8f1ec;
+  --n-blue-bg: #e5f2fc;
+  --n-purple-bg: #f3ebf9;
+  --n-pink-bg: #fae9f1;
+  --n-red-bg: #fce9e7;
+  --n-gray-pill-text: #494846;
+  --n-brown-pill-text: #584437;
+  --n-orange-pill-text: #6a4222;
+  --n-yellow-pill-text: #655121;
+  --n-green-pill-text: #2a533c;
+  --n-blue-pill-text: #264a72;
+  --n-purple-pill-text: #553b69;
+  --n-pink-pill-text: #68354e;
+  --n-red-pill-text: #6d3531;
+  --n-gray-pill-bg: rgba(28,19,1,.11);
+  --n-brown-pill-bg: rgba(127,51,0,.157);
+  --n-orange-pill-bg: rgba(196,88,0,.204);
+  --n-yellow-pill-bg: rgba(209,156,0,.282);
+  --n-green-pill-bg: rgba(0,96,38,.157);
+  --n-blue-pill-bg: rgba(0,118,217,.204);
+  --n-purple-pill-bg: rgba(92,0,163,.14);
+  --n-pink-pill-bg: rgba(183,0,78,.153);
+  --n-red-pill-bg: rgba(206,24,0,.165);
+}
+
+[data-display-mode="dark"] {
+  --n-gray-bg: #383836;
+  --n-brown-bg: #45362d;
+  --n-orange-bg: #53361f;
+  --n-yellow-bg: #504425;
+  --n-green-bg: #263d30;
+  --n-blue-bg: #233850;
+  --n-purple-bg: #3c2d47;
+  --n-pink-bg: #4e2b3c;
+  --n-red-bg: #502c29;
+  --n-gray-pill-text: #f0efed;
+  --n-brown-pill-text: #f5ede9;
+  --n-orange-pill-text: #fbebde;
+  --n-yellow-pill-text: #f9f3dc;
+  --n-green-pill-text: #e8f1ec;
+  --n-blue-pill-text: #e5f2fc;
+  --n-purple-pill-text: #f3ebf9;
+  --n-pink-pill-text: #fae9f1;
+  --n-red-pill-text: #fce9e7;
+  --n-gray-pill-bg: rgba(255,252,235,.306);
+  --n-brown-pill-bg: rgba(255,184,132,.365);
+  --n-orange-pill-bg: rgba(255,143,71,.482);
+  --n-yellow-pill-bg: rgba(255,188,53,.46);
+  --n-green-pill-bg: rgba(113,255,175,.337);
+  --n-blue-pill-bg: rgba(81,166,255,.494);
+  --n-purple-pill-bg: rgba(208,147,255,.427);
+  --n-pink-pill-bg: rgba(255,133,192,.427);
+  --n-red-pill-bg: rgba(255,116,105,.525);
+}
+
+/*
+ * The bottom padding is deliberate: Notion draws its own block resize handle
+ * over the lower edge of the iframe, and it swallows clicks on anything
+ * underneath. Without this gap the "Add step" button sits beneath the handle and
+ * cannot be clicked.
+ */
+.stepline-root {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4) var(--spacing-2) var(--spacing-24);
+}
+
+/*
+ * The edit control is revealed on hover so a stepline at rest is only its steps.
+ * `focus-within` keeps it reachable from the keyboard, and it stays visible
+ * while editing so there is always a way back out.
+ */
+.stepline-toolbar {
+  position: absolute;
+  top: 0;
+  right: var(--spacing-2);
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.stepline-root:hover .stepline-toolbar,
+.stepline-root:focus-within .stepline-toolbar,
+.stepline-root.is-editable .stepline-toolbar {
+  opacity: 1;
+}
+
+/* Touch and keyboard-only users never hover, so never hide it from them. */
+@media (hover: none) {
+  .stepline-toolbar {
+    opacity: 1;
+  }
+}
+
+/* ── The rail ─────────────────────────────────────────────────────────── */
+
+.stepline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: var(--spacing-24) 1fr;
+  column-gap: var(--spacing-8);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The numbered circle. Its fill is what carries the step's status. */
+.bullet {
+  flex: none;
+  width: var(--spacing-20);
+  height: var(--spacing-20);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-body-xs);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-base);
+  color: var(--content-secondary);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+/* The line joining one bullet to the next. */
+.connector {
+  flex: 1 1 auto;
+  width: 1px;
+  min-height: var(--spacing-4);
+  margin: 0;
+  border-radius: 0;
+  background: var(--border-primary);
+}
+
+/*
+ * A completed step's bullet is a solid circle with a white tick, filled with
+ * the same Notion colour as the step's title. A status with no hue (default or
+ * grey) keeps the original near-black fill, as its title stays black. The rail
+ * between completed steps takes the bullet's colour.
+ */
+.step {
+  --step-ink: var(--bg-interactive-strong);
+  --step-ink-mark: var(--content-on-interactive-strong);
+}
+
+.ink-brown { --step-ink: var(--n-brown-text); --step-ink-mark: #fff; }
+.ink-orange { --step-ink: var(--n-orange-text); --step-ink-mark: #fff; }
+.ink-yellow { --step-ink: var(--n-yellow-text); --step-ink-mark: #fff; }
+.ink-green { --step-ink: var(--n-green-text); --step-ink-mark: #fff; }
+.ink-blue { --step-ink: var(--n-blue-text); --step-ink-mark: #fff; }
+.ink-purple { --step-ink: var(--n-purple-text); --step-ink-mark: #fff; }
+.ink-pink { --step-ink: var(--n-pink-text); --step-ink-mark: #fff; }
+.ink-red { --step-ink: var(--n-red-text); --step-ink-mark: #fff; }
+
+.step-complete .bullet {
+  background: var(--step-ink);
+  border-color: var(--step-ink);
+  color: var(--step-ink-mark);
+}
+
+.step-complete .connector {
+  background: var(--step-ink);
+}
+
+.step-active .bullet {
+  border-color: var(--content-interactive-primary);
+  color: var(--content-interactive-primary);
+  box-shadow: 0 0 0 3px var(--bg-interactive-primary-translucent);
+}
+
+/* ── Step content ─────────────────────────────────────────────────────── */
+
+.step-body {
+  min-width: 0;
+  padding-bottom: var(--spacing-2);
+}
+
+.step-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  padding: var(--spacing-4) var(--spacing-6);
+  margin-left: calc(var(--spacing-6) * -1);
+  border: none;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: var(--spacing-28);
+}
+
+.step-header:hover {
+  background: var(--bg-hover);
+}
+
+.step-header:focus-visible {
+  outline: 2px solid var(--border-interactive-primary);
+  outline-offset: 1px;
+}
+
+/*
+ * A step title sits at body size (14px), as Notion's own list and toggle rows
+ * do; medium weight is what sets it apart from the detail copy under it.
+ */
+.step-title {
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: var(--font-weight-medium);
+  color: var(--content-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-date {
+  font-size: var(--text-body-xs);
+  color: var(--content-tertiary);
+  white-space: nowrap;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  font-size: var(--text-body-xs);
+  line-height: 1;
+  border-radius: 9px;
+  padding: 0 var(--spacing-8) 0 7px;
+  white-space: nowrap;
+}
+
+/*
+ * The pill beside a title is the status control. It stays a pill: no button
+ * chrome, just a pointer and the faintest darkening on hover.
+ */
+.status-button {
+  border: 0;
+  font: inherit;
+  font-size: var(--text-body-xs);
+  cursor: pointer;
+}
+
+.status-button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 100px rgba(15, 15, 15, 0.05);
+}
+
+.status-button:focus-visible,
+button.bullet:focus-visible {
+  outline: 2px solid var(--border-interactive-primary);
+  outline-offset: 1px;
+}
+
+/* The bullet is the other way into the status menu. */
+button.bullet {
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button.bullet:hover:not(:disabled) {
+  box-shadow: 0 0 0 3px var(--bg-hover);
+}
+
+/* ── Status colours ───────────────────────────────────────────────────── */
+
+/*
+ * A step's title takes the colour the workspace gave its status option, in
+ * Notion's own text colour for that hue, so the stepline reads in the same
+ * colours as the database behind it. Options with no hue (`default` and `gray`,
+ * which an untouched "Not started" usually is) keep ordinary black titles; a
+ * grey title would read as disabled.
+ */
+.tone-brown { color: var(--n-brown-text); }
+.tone-orange { color: var(--n-orange-text); }
+.tone-yellow { color: var(--n-yellow-text); }
+.tone-green { color: var(--n-green-text); }
+.tone-blue { color: var(--n-blue-text); }
+.tone-purple { color: var(--n-purple-text); }
+.tone-pink { color: var(--n-pink-text); }
+.tone-red { color: var(--n-red-text); }
+
+/*
+ * The status pill is drawn exactly as Notion draws one: its hue's darkest text
+ * on a translucent tint. Default and grey options get Notion's grey pill.
+ */
+.pill-gray { color: var(--n-gray-pill-text); background: var(--n-gray-pill-bg); }
+.pill-brown { color: var(--n-brown-pill-text); background: var(--n-brown-pill-bg); }
+.pill-orange { color: var(--n-orange-pill-text); background: var(--n-orange-pill-bg); }
+.pill-yellow { color: var(--n-yellow-pill-text); background: var(--n-yellow-pill-bg); }
+.pill-green { color: var(--n-green-pill-text); background: var(--n-green-pill-bg); }
+.pill-blue { color: var(--n-blue-pill-text); background: var(--n-blue-pill-bg); }
+.pill-purple { color: var(--n-purple-pill-text); background: var(--n-purple-pill-bg); }
+.pill-pink { color: var(--n-pink-pill-text); background: var(--n-pink-pill-bg); }
+.pill-red { color: var(--n-red-pill-text); background: var(--n-red-pill-bg); }
+
+/*
+ * The chevron sits on every step that has something to reveal, all the time,
+ * so readers can see there is more. It stays in Notion's faint grey so the
+ * list still reads as titles first.
+ */
+.chevron {
+  flex: none;
+  color: var(--content-tertiary);
+  transition: transform 140ms ease;
+}
+
+/*
+ * "Click to reveal" on the title, drawn like Notion's tooltips: a small dark
+ * label just below, after a short pause. It sits below rather than above so the
+ * first step's tooltip isn't cut off by the top of the block.
+ */
+.step-title-wrap {
+  position: relative;
+  min-width: 0;
+  display: inline-flex;
+}
+
+.step-title-wrap[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  padding: 3px 7px;
+  border-radius: var(--radius-4);
+  background: rgba(15, 15, 15, 0.9);
+  color: #fff;
+  font-size: var(--text-body-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.step-title-wrap[data-tooltip]:hover::after {
+  opacity: 1;
+  transition-delay: 400ms;
+}
+
+[data-display-mode="dark"] .step-title-wrap[data-tooltip]::after {
+  background: #fff;
+  color: rgba(15, 15, 15, 0.9);
+}
+
+.chevron.is-open {
+  transform: rotate(90deg);
+}
+
+/* ── Expanded panel ───────────────────────────────────────────────────── */
+
+/*
+ * Deliberately no card, border or tint: an open step is body copy on the page,
+ * not a callout sitting on top of it. The indent under the title is the only
+ * thing marking it as belonging to that step.
+ */
+.step-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-10);
+  padding: var(--spacing-2) var(--spacing-6) var(--spacing-10);
+  background: transparent;
+}
+
+.step-panel[hidden] {
+  display: none;
+}
+
+.detail-read {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--text-body--line-height);
+  color: var(--content-primary);
+  white-space: pre-wrap;
+}
+
+.detail-empty {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  color: var(--content-tertiary);
+}
+
+.step-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+}
+
+.step-form {
+  display: contents;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.field-label {
+  font-size: var(--text-body-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--content-tertiary);
+}
+
+.field-note {
+  margin: 0;
+  font-size: var(--text-body-xs);
+  color: var(--content-tertiary);
+}
+
+.field-input {
+  width: 100%;
+  font: inherit;
+  font-size: var(--text-body-sm);
+  color: var(--content-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-6);
+  padding: var(--spacing-6) var(--spacing-8);
+}
+
+.field-input:focus-visible {
+  outline: 2px solid var(--border-interactive-primary);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+/*
+ * A disabled field keeps its own text colour and dims instead, for the same
+ * reason: --content-disabled is near-invisible on light backgrounds, which made
+ * a saving step look as though its title and detail had been wiped.
+ */
+.field-input:disabled {
+  opacity: 0.6;
+}
+
+.field-textarea {
+  resize: vertical;
+  min-height: var(--spacing-64);
+  line-height: var(--text-body-sm--line-height);
+}
+
+/* ── Status picker ────────────────────────────────────────────────────── */
+
+.status-picker {
+  position: relative;
+  align-self: flex-start;
+}
+
+.status-trigger,
+.status-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-6);
+  font: inherit;
+  font-size: var(--text-body-sm);
+  color: var(--content-primary);
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-6);
+  padding: var(--spacing-4) var(--spacing-8);
+  cursor: pointer;
+}
+
+.status-trigger:hover {
+  background: var(--bg-control-hover);
+}
+
+.status-menu {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + var(--spacing-4));
+  left: 0;
+  min-width: var(--spacing-96);
+  list-style: none;
+  margin: 0;
+  padding: var(--spacing-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-md);
+}
+
+.status-option {
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
+.status-option:hover,
+.status-option[aria-selected="true"] {
+  background: var(--bg-hover);
+}
+
+.status-swatch {
+  flex: none;
+  width: var(--spacing-8);
+  height: var(--spacing-8);
+  border-radius: var(--radius-full);
+  background: var(--content-tertiary);
+}
+
+.swatch-green { background: var(--n-green-text); }
+.swatch-blue { background: var(--n-blue-text); }
+.swatch-red { background: var(--n-red-text); }
+.swatch-yellow { background: var(--n-yellow-text); }
+.swatch-orange { background: var(--n-orange-text); }
+.swatch-purple { background: var(--n-purple-text); }
+.swatch-pink { background: var(--n-pink-text); }
+.swatch-brown { background: var(--n-brown-text); }
+.swatch-gray,
+.swatch-default { background: var(--n-gray-text); }
+
+/* ── Actions & footer ─────────────────────────────────────────────────── */
+
+.step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-6);
+}
+
+.ghost-button,
+.add-button {
+  font: inherit;
+  font-size: var(--text-body-sm);
+  border-radius: var(--radius-6);
+  padding: var(--spacing-4) var(--spacing-10);
+  cursor: pointer;
+  border: 1px solid var(--border-control);
+  background: var(--bg-control);
+  color: var(--content-primary);
+}
+
+.ghost-button:hover:not(:disabled),
+.add-button:hover:not(:disabled) {
+  background: var(--bg-control-hover);
+}
+
+/*
+ * Disabled controls dim rather than recolour. In light mode --content-disabled
+ * and --bg-control are the same value (--gray-40), so disabled label on a control
+ * is invisible — the button reads as an empty grey box. Fading the whole control
+ * keeps the label legible and works the same in both themes.
+ */
+.ghost-button:disabled,
+.add-button:disabled,
+.primary-button:disabled,
+.status-trigger:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/*
+ * Destructive affordances carry a small red dot rather than red text or a red
+ * fill. Only the contrast modes redefine the raw --red-* scale — it does not
+ * flip between light and dark — so red text or a red tint reads correctly in one
+ * theme and poorly in the other. A dot is small enough for a fixed colour to be
+ * safe, and the label keeps the semantic --content-* contrast in both themes.
+ */
+.ghost-button.danger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-6);
+}
+
+.ghost-button.danger::before {
+  content: "";
+  width: var(--spacing-6);
+  height: var(--spacing-6);
+  border-radius: var(--radius-full);
+  background: var(--red-60);
+}
+
+.ghost-button.danger.is-confirming:not(:disabled) {
+  font-weight: var(--font-weight-semibold);
+  background: var(--bg-control-hover);
+}
+
+.primary-button {
+  font: inherit;
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid transparent;
+  border-radius: var(--radius-6);
+  padding: var(--spacing-4) var(--spacing-12);
+  cursor: pointer;
+  background: var(--bg-interactive-strong);
+  color: var(--content-on-interactive-strong);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--bg-interactive-strong-hover);
+}
+
+.primary-button:disabled {
+  background: var(--bg-interactive-strong);
+  color: var(--content-on-interactive-strong);
+}
+
+.stepline-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-8);
+  padding-left: calc(var(--spacing-24) + var(--spacing-8));
+}
+
+.empty {
+  margin: 0;
+  padding-left: calc(var(--spacing-24) + var(--spacing-8));
+  font-size: var(--text-body-sm);
+  color: var(--content-tertiary);
+}
+
+.notice {
+  font-size: var(--text-body-sm);
+  color: var(--content-secondary);
+  padding: var(--spacing-8) var(--spacing-12);
+  border-radius: var(--radius-8);
+  background: var(--bg-muted);
+}
+
+.notice-error {
+  color: var(--content-primary);
+  background: var(--bg-muted);
+  border-left: 3px solid var(--red-60);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bullet,
+  .chevron {
+    transition: none;
+  }
+}
+
+/* ── Status menu ──────────────────────────────────────────────────────── */
+
+/*
+ * Kept as quiet as Notion's own status menu: a small white card, group names in
+ * small grey type, each option as its pill, the current one ticked.
+ */
+.status-dropdown {
+  position: absolute;
+  z-index: 10;
+  box-sizing: border-box;
+  min-width: 180px;
+  max-width: 260px;
+  padding: var(--spacing-4);
+  border-radius: var(--radius-10);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg-outline);
+}
+
+.status-dropdown-group + .status-dropdown-group {
+  margin-top: var(--spacing-4);
+}
+
+.status-dropdown-label {
+  padding: var(--spacing-4) var(--spacing-8) var(--spacing-2);
+  font-size: var(--text-body-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--content-tertiary);
+}
+
+.status-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-8);
+  width: 100%;
+  min-height: var(--spacing-28);
+  padding: 0 var(--spacing-8);
+  border: 0;
+  border-radius: var(--radius-6);
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.status-dropdown-item:hover,
+.status-dropdown-item:focus-visible {
+  outline: none;
+  background: var(--bg-hover);
+}
+
+.status-dropdown-tick {
+  flex: none;
+  color: var(--content-secondary);
+}
+
+/* ── The heading ──────────────────────────────────────────────────────── */
+
+/* Notion's Heading 3: 1.25em, semibold, a little air below it. */
+.plan-title {
+  font-size: 1.25em;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  color: var(--content-primary);
+  padding: var(--spacing-4) 0 var(--spacing-6);
+}
+
+.plan-title .callout-editable {
+  min-height: 1.3em;
+}
+
+/* ── Editable text (from the text-editor skill) ───────────────────────── */
+
+.callout-editable {
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  caret-color: var(--content-primary);
+}
+
+.callout-editable:empty::before {
+  content: attr(data-placeholder);
+  color: var(--content-tertiary);
+  pointer-events: none;
+}
+
+/* Text colour and highlight, in Notion's own colours (see the palette above). */
+.c-gray { color: var(--n-gray-text); }
+.c-brown { color: var(--n-brown-text); }
+.c-orange { color: var(--n-orange-text); }
+.c-yellow { color: var(--n-yellow-text); }
+.c-green { color: var(--n-green-text); }
+.c-blue { color: var(--n-blue-text); }
+.c-purple { color: var(--n-purple-text); }
+.c-pink { color: var(--n-pink-text); }
+.c-red { color: var(--n-red-text); }
+
+.c-gray_background { background: var(--n-gray-bg); }
+.c-brown_background { background: var(--n-brown-bg); }
+.c-orange_background { background: var(--n-orange-bg); }
+.c-yellow_background { background: var(--n-yellow-bg); }
+.c-green_background { background: var(--n-green-bg); }
+.c-blue_background { background: var(--n-blue-bg); }
+.c-purple_background { background: var(--n-purple-bg); }
+.c-pink_background { background: var(--n-pink-bg); }
+.c-red_background { background: var(--n-red-bg); }
+
+/* ── Rich text ────────────────────────────────────────────────────────── */
+
+.rt-bold { font-weight: var(--font-weight-semibold); }
+.rt-italic { font-style: italic; }
+.rt-underline { text-decoration: underline; }
+.rt-strike { text-decoration: line-through; }
+.rt-underline.rt-strike { text-decoration: underline line-through; }
+
+.rt-link {
+  text-decoration: underline;
+  text-decoration-color: var(--content-tertiary);
+  text-underline-offset: 2px;
+}
+
+.rt-code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.85em;
+  padding: 0.2em 0.4em;
+  border-radius: var(--radius-4, 4px);
+  background: var(--bg-muted);
+  color: var(--red-100);
+}
+
+[data-display-mode="dark"] .rt-code { color: var(--red-50); }
+
+/* ── Menus ────────────────────────────────────────────────────────────── */
+
+/*
+ * Drawn after Notion's own popovers: a white card with a hairline outline and
+ * soft shadow, 32px icon buttons, and active marks in blue. Menus sit outside
+ * the tilting body so they never lean with it.
+ */
+.format-menu {
+  position: absolute;
+  z-index: 10;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding: var(--spacing-6);
+  border-radius: var(--radius-10);
+  background: var(--bg-elevated);
+  color: var(--content-primary);
+  box-shadow: var(--shadow-lg-outline);
+  font-size: var(--text-body-sm);
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(5, var(--spacing-32));
+  gap: var(--spacing-2);
+}
+
+.menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--spacing-32);
+  height: var(--spacing-32);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: none;
+  color: var(--content-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.menu-button:hover {
+  background: var(--bg-hover);
+}
+
+/*
+ * Notion marks an active format in its accent blue, the same in both themes.
+ * --content-interactive-primary follows the page theme, which is grey here.
+ */
+.menu-button.is-active {
+  color: #2383e2;
+}
+
+.menu-button:focus-visible,
+.menu-row-button:focus-visible,
+.swatch:focus-visible,
+.emoji-choice:focus-visible {
+  outline: 2px solid var(--border-interactive-primary);
+  outline-offset: -2px;
+}
+
+.glyph {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.glyph-bold { font-weight: var(--font-weight-bold); }
+.glyph-italic { font-style: italic; font-family: Georgia, "Times New Roman", serif; }
+.glyph-underline { text-decoration: underline; text-underline-offset: 3px; }
+.glyph-strike { text-decoration: line-through; }
+
+/* The colour button: an "A" in an outlined square, showing the colour in use. */
+.colour-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-4);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  padding-top: var(--spacing-6);
+  border-top: 1px solid var(--border-primary);
+}
+
+.menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.menu-label {
+  padding: 0 var(--spacing-2);
+  font-size: var(--text-body-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--content-secondary);
+}
+
+.swatch-row {
+  display: flex;
+  gap: var(--spacing-4);
+}
+
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--spacing-24);
+  height: var(--spacing-24);
+  padding: 0;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-4);
+  font: inherit;
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+/* Background swatches take their fill from c-*_background, declared above. */
+.swatch:not([class*="_background"]) {
+  background: var(--bg-base);
+}
+
+.swatch[class*="_background"] {
+  color: var(--content-primary);
+}
+
+.swatch.is-selected,
+.emoji-choice.is-selected {
+  outline: 2px solid var(--border-interactive-primary);
+  outline-offset: 1px;
+}
+
+.menu-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 220px;
+  font: inherit;
+  font-size: var(--text-body-sm);
+  color: var(--content-primary);
+  background: var(--bg-muted);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-6);
+  padding: var(--spacing-4) var(--spacing-8);
+}
+
+.menu-input:focus-visible {
+  outline: 2px solid var(--border-interactive-primary);
+  outline-offset: -1px;
+}
+
+.menu-row-button {
+  align-self: flex-start;
+  padding: var(--spacing-4) var(--spacing-6);
+  border: 0;
+  border-radius: var(--radius-6);
+  background: none;
+  color: var(--content-secondary);
+  font: inherit;
+  font-size: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.menu-row-button:hover {
+  background: var(--bg-hover);
+}

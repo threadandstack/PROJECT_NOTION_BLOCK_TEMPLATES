@@ -1,0 +1,8 @@
+.DS_Store
+node_modules/
+dist/
+workers.json
+workers.*.json
+.env
+.env.*
+.dev-shell/
